@@ -78,6 +78,15 @@ namespace ImageGallery.API.Services
                 }
 
             }
-        }     
+        }
+
+        public ApplicationUserProfile GetUserProfile(string subject) => _context.ApplicationUserProfiles.FirstOrDefault(p => p.Subject == subject);
+
+        public void AddUserProfile(ApplicationUserProfile profile)
+        {
+            _context.ApplicationUserProfiles.Add(profile);
+        }
+
+        public bool UserProfileExists(string subject) => _context.ApplicationUserProfiles.Any(p => p.Subject == subject);
     }
 }

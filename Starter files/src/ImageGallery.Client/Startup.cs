@@ -1,17 +1,20 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+﻿using IdentityModel;
+using ImageGallery.Client.HttpHandlers;
+using ImageGallery.Client.PostConfigurationOptions;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using System;
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
-using IdentityModel;
-using ImageGallery.Client.HttpHandlers;
+using System.Net.Http;
 
 namespace ImageGallery.Client
 {
@@ -33,14 +36,14 @@ namespace ImageGallery.Client
 
             services.AddAuthorization(authorizationOptions =>
                 {
-                   authorizationOptions.AddPolicy(
-                       "CanOrderFrame",
-                       policyBuilder =>
-                       {
-                           policyBuilder.RequireAuthenticatedUser();
-                           policyBuilder.RequireClaim("country", "be");
-                           policyBuilder.RequireClaim("subscriptionlevel", "PayingUser");
-                       });
+                    authorizationOptions.AddPolicy(
+                        "CanOrderFrame",
+                        policyBuilder =>
+                        {
+                            policyBuilder.RequireAuthenticatedUser();
+                            policyBuilder.RequireClaim("country", "be");
+                            policyBuilder.RequireClaim("subscriptionlevel", "PayingUser");
+                        });
 
 
                     authorizationOptions.AddPolicy(
@@ -63,6 +66,13 @@ namespace ImageGallery.Client
                 client.DefaultRequestHeaders.Clear();
                 client.DefaultRequestHeaders.Add(HeaderNames.Accept, "application/json");
             }).AddHttpMessageHandler<BearerTokenHandler>();
+
+            services.AddHttpClient("BasicAPIClient", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:44366/");
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Add(HeaderNames.Accept, "application/json");
+            });
 
             // create an HttpClient used for accessing the IDP
             services.AddHttpClient("IDPClient", client =>
@@ -87,17 +97,15 @@ namespace ImageGallery.Client
                 options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 options.Authority = "https://localhost:44318/";
                 options.ClientId = "imagegalleryclient";
-                options.ResponseType = "code";               
-                options.Scope.Add("address"); 
+                options.ResponseType = "code";
+                options.Scope.Add("address");
                 options.Scope.Add("imagegalleryapi");
-                options.Scope.Add("subscriptionlevel");
                 options.Scope.Add("country");
                 options.Scope.Add("offline_access");
                 options.ClaimActions.DeleteClaim("sid");
                 options.ClaimActions.DeleteClaim("idp");
                 options.ClaimActions.DeleteClaim("s_hash");
-                options.ClaimActions.DeleteClaim("auth_time"); 
-                options.ClaimActions.MapUniqueJsonKey("subscriptionlevel", "subscriptionlevel");
+                options.ClaimActions.DeleteClaim("auth_time");
                 options.ClaimActions.MapUniqueJsonKey("country", "country");
                 options.SaveTokens = true;
                 options.ClientSecret = "secret";
@@ -109,14 +117,14 @@ namespace ImageGallery.Client
                 };
             });
 
-
+            services.AddSingleton<IPostConfigureOptions<OpenIdConnectOptions>, OpenIdConnectOptionsPostConfigurationOptions>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseStaticFiles();
- 
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

@@ -35,6 +35,7 @@ namespace ImageGallery.API
             services.AddHttpContextAccessor();
 
             services.AddScoped<IAuthorizationHandler, MustOwnImageHandler>();
+            services.AddScoped<IAuthorizationHandler, SubjectMustMatchUserHandler>();
 
             services.AddAuthorization(authorizationOptions =>
             {
@@ -45,6 +46,14 @@ namespace ImageGallery.API
                         policyBuilder.RequireAuthenticatedUser();
                         policyBuilder.AddRequirements(
                               new MustOwnImageRequirement());
+                    });
+
+                authorizationOptions.AddPolicy(
+                    "SubjectMustMatchUser",
+                    policyBuilder =>
+                    {
+                        policyBuilder.RequireAuthenticatedUser();
+                        policyBuilder.AddRequirements(new SubjectMustMatchUserRequirement());
                     });
 
                 authorizationOptions.AddPolicy(
