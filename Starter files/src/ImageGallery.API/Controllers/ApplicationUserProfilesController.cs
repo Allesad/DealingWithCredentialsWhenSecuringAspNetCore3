@@ -31,7 +31,17 @@ namespace ImageGallery.API.Controllers
 
             if (profileFromRepo == null)
             {
-                return NotFound();
+                // subject must come from token
+                var subjectFromToken = User.Claims.FirstOrDefault(c => c.Type == "sub").Value;
+
+                profileFromRepo = new Entities.ApplicationUserProfile
+                {
+                    Subject = subjectFromToken,
+                    SubscriptionLevel = "FreeUser"
+                };
+
+                _galleryRepository.AddUserProfile(profileFromRepo);
+                _galleryRepository.Save();
             }
 
             return Ok(_mapper.Map<ApplicationUserProfile>(profileFromRepo));
