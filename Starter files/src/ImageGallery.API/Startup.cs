@@ -36,6 +36,7 @@ namespace ImageGallery.API
 
             services.AddScoped<IAuthorizationHandler, MustOwnImageHandler>();
             services.AddScoped<IAuthorizationHandler, SubjectMustMatchUserHandler>();
+            services.AddScoped<IAuthorizationHandler, SubscriptionLevelHandler>();
 
             services.AddAuthorization(authorizationOptions =>
             {
@@ -61,7 +62,7 @@ namespace ImageGallery.API
                    policyBuilder =>
                    {
                        policyBuilder.RequireAuthenticatedUser();
-                       policyBuilder.RequireClaim("subscriptionlevel", "PayingUser");
+                       policyBuilder.AddRequirements(new SubscriptionLevelRequirement("PayingUser"));
                    });
             });
 
