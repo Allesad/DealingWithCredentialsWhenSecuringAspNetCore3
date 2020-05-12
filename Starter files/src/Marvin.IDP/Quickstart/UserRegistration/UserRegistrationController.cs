@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace Marvin.IDP.UserRegistration
@@ -37,7 +38,8 @@ namespace Marvin.IDP.UserRegistration
                 Username = model.UserName,
                 Password = model.Password,
                 Subject = Guid.NewGuid().ToString(),
-                Active = true
+                Email = model.Email,
+                Active = false
             };
 
             userToCreate.Claims.Add(new Entities.UserClaim
@@ -67,14 +69,39 @@ namespace Marvin.IDP.UserRegistration
             _localUserService.AddUser(userToCreate, model.Password);
             await _localUserService.SaveChangesAsync();
 
-            await HttpContext.SignInAsync(userToCreate.Subject, userToCreate.Username);
+            var link = Url.ActionLink("ActivateUser", "UserRegistration",
+                new { securityCode = userToCreate.SecurityCode });
 
-            if (_interaction.IsValidReturnUrl(model.ReturnUrl) || Url.IsLocalUrl(model.ReturnUrl))
+            Debug.WriteLine(link);
+
+            //await HttpContext.SignInAsync(userToCreate.Subject, userToCreate.Username);
+
+            //if (_interaction.IsValidReturnUrl(model.ReturnUrl) || Url.IsLocalUrl(model.ReturnUrl))
+            //{
+            //    return Redirect(model.ReturnUrl);
+            //}
+
+            //return Redirect("~/");
+            return View("ActivationCodeSent");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ActivateUser(string securityCode)
+        {
+            if (await _localUserService.ActivateUser(securityCode))
             {
-                return Redirect(model.ReturnUrl);
+                ViewData["Message"] = "Your account was successfully activated. " +
+                    "Navigate to your client application to log in.";
+            }
+            else
+            {
+                ViewData["Message"] = "Your account couldn't be activated, " +
+                    "please contact your administrator";
             }
 
-            return Redirect("~/");
+            await _localUserService.SaveChangesAsync();
+
+            return View();
         }
     }
 }

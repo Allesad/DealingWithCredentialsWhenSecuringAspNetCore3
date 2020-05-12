@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 namespace Marvin.IDP.Services
@@ -141,6 +142,22 @@ namespace Marvin.IDP.Services
                 throw new Exception("Username must be unique");
             }
 
+            if (_context.Users.Any(u => u.Email == userToAdd.Email))
+            {
+                // in a real-life scenario you'll probably want to 
+                // return this as a validation issue
+                throw new Exception("Email must be unique");
+            }
+
+            using (var rng = new RNGCryptoServiceProvider())
+            {
+                var securityCodeData = new byte[128];
+                rng.GetBytes(securityCodeData);
+                userToAdd.SecurityCode = Convert.ToBase64String(securityCodeData);
+            }
+
+            userToAdd.SecurityCodeExpirationDate = DateTime.UtcNow.AddHours(1);
+
             userToAdd.Password = _passwordHasher.HashPassword(userToAdd, password);
             
             _context.Users.Add(userToAdd);
@@ -185,27 +202,27 @@ namespace Marvin.IDP.Services
         //    _context.Users.Add(userToAdd);
         //}
 
-        //public async Task<bool> ActivateUser(string securityCode)
-        //{
-        //    if (string.IsNullOrWhiteSpace(securityCode))
-        //    {
-        //        throw new ArgumentNullException(nameof(securityCode));
-        //    }
-            
-        //    // find an user with this security code as an active security code.  
-        //    var user = await _context.Users.FirstOrDefaultAsync(u => 
-        //        u.SecurityCode == securityCode && 
-        //        u.SecurityCodeExpirationDate >= DateTime.UtcNow);
+        public async Task<bool> ActivateUser(string securityCode)
+        {
+            if (string.IsNullOrWhiteSpace(securityCode))
+            {
+                throw new ArgumentNullException(nameof(securityCode));
+            }
 
-        //    if (user == null)
-        //    {
-        //        return false;
-        //    }
+            // find an user with this security code as an active security code.
+            var user = await _context.Users.FirstOrDefaultAsync(u =>
+                u.SecurityCode == securityCode &&
+                u.SecurityCodeExpirationDate >= DateTime.UtcNow);
 
-        //    user.Active = true;
-        //    user.SecurityCode = null;
-        //    return true;
-        //}
+            if (user == null)
+            {
+                return false;
+            }
+
+            user.Active = true;
+            user.SecurityCode = null;
+            return true;
+        }
 
         //public async Task<bool> AddUserSecret(string subject, string name, string secret)
         //{
@@ -225,7 +242,7 @@ namespace Marvin.IDP.Services
         //    }
 
         //    var user = await GetUserBySubjectAsync(subject); 
-            
+
         //    if (user == null)
         //    {
         //        return false;
@@ -333,7 +350,7 @@ namespace Marvin.IDP.Services
 
         //    return userLogin?.User;
         //}
-        
+
         //public async Task AddExternalProviderToUser(
         //    string subject,
         //    string provider,
@@ -361,7 +378,7 @@ namespace Marvin.IDP.Services
         //        ProviderIdentityKey = providerIdentityKey
         //    });            
         //}
-        
+
         //public User ProvisionUserFromExternalIdentity(
         //    string provider, 
         //    string providerIdentityKey,
@@ -401,7 +418,7 @@ namespace Marvin.IDP.Services
         //    return user;
         //}
 
-      
+
 
         public async Task<bool> SaveChangesAsync()
         {
