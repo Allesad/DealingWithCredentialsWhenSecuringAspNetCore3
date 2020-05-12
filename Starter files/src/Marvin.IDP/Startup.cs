@@ -2,9 +2,11 @@
 // Licensed under the Apache License, Version 2.0. See LICENSE in the project root for license information.
 
 using Marvin.IDP.DbContexts;
+using Marvin.IDP.Entities;
 using Marvin.IDP.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,6 +30,7 @@ namespace Marvin.IDP
             services.AddDbContext<IdentityDbContext>(options => options.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=MarvinIdentityDB;Trusted_Connection=True;"));
 
             services.AddScoped<ILocalUserService, LocalUserService>();
+            services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
             var builder = services.AddIdentityServer()
                 .AddInMemoryIdentityResources(Config.Ids)

@@ -64,7 +64,7 @@ namespace Marvin.IDP.UserRegistration
                 Value = model.FamilyName
             });
 
-            _localUserService.AddUser(userToCreate);
+            _localUserService.AddUser(userToCreate, model.Password);
             await _localUserService.SaveChangesAsync();
 
             await HttpContext.SignInAsync(userToCreate.Subject, userToCreate.Username);
