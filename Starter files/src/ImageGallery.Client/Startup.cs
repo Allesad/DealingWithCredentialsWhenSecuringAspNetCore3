@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
+using Serilog;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
@@ -138,6 +139,8 @@ namespace ImageGallery.Client
             }
             app.UseHttpsRedirection();
             app.UseStaticFiles();
+
+            app.UseSerilogRequestLogging();
 
             app.UseRouting();
 

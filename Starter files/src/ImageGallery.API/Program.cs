@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
 using System;
 
 namespace ImageGallery.API
@@ -12,6 +14,13 @@ namespace ImageGallery.API
     {
         public static void Main(string[] args)
         {
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Information)
+                .WriteTo.Console()
+                .CreateLogger();
+
             var host = BuildWebHost(args);
 
             // migrate & seed the database.  Best practice = in Main, using service scope
@@ -19,7 +28,7 @@ namespace ImageGallery.API
             {
                 try
                 {
-                    var context = scope.ServiceProvider.GetService<GalleryContext>();                   
+                    var context = scope.ServiceProvider.GetService<GalleryContext>();
                     // migrate & seed
                     context.Database.Migrate();
                 }
@@ -36,6 +45,7 @@ namespace ImageGallery.API
 
         public static IWebHost BuildWebHost(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
+                .UseSerilog()
                 .UseStartup<Startup>()
                 .Build();
     }
