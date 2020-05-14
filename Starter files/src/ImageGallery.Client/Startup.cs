@@ -16,6 +16,7 @@ using Serilog;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
+using Microsoft.IdentityModel.Logging;
 
 namespace ImageGallery.Client
 {
@@ -128,6 +129,7 @@ namespace ImageGallery.Client
 
             if (env.IsDevelopment())
             {
+                IdentityModelEventSource.ShowPII = true;
                 app.UseDeveloperExceptionPage();
             }
             else
