@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Marvin.IDP.UserRegistration
@@ -102,6 +104,45 @@ namespace Marvin.IDP.UserRegistration
             await _localUserService.SaveChangesAsync();
 
             return View();
+        }
+
+        [HttpGet]
+        public IActionResult RegisterUserFromFacebook(RegisterUserFromFacebookInputViewModel model)
+        {
+            if (model is null) throw new ArgumentNullException(nameof(model));
+
+            return View(new RegisterUserFromFacebookViewModel
+            {
+                GivenName = model.GivenName,
+                FamilyName = model.FamilyName,
+                Email = model.Email,
+                Provider = model.Provider,
+                ProviderUserId = model.ProviderUserId
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RegisterUserFromFacebook(RegisterUserFromFacebookViewModel model)
+        {
+            if (!ModelState.IsValid) return View(model);
+
+            // create claims
+            var claims = new List<Claim>
+            {
+                new Claim(JwtClaimTypes.Email, model.Email),
+                new Claim(JwtClaimTypes.GivenName, model.GivenName),
+                new Claim(JwtClaimTypes.FamilyName, model.FamilyName),
+                new Claim(JwtClaimTypes.Address, model.Address),
+                new Claim("country", model.Country)
+            };
+
+            // provision the user
+            _localUserService.ProvisionUserFromExternalIdentity(model.Provider, model.ProviderUserId, claims);
+            await _localUserService.SaveChangesAsync();
+
+            // redirect
+            return RedirectToAction("Callback", "External");
         }
     }
 }
