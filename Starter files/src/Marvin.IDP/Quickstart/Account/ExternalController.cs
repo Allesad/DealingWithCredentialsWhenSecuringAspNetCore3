@@ -28,6 +28,12 @@ namespace Marvin.IDP
         private readonly ILogger<ExternalController> _logger;
         private readonly ILocalUserService _localUserService;
         private readonly IEventService _events;
+        private readonly Dictionary<string, string> _facebookClaimTypeMap = new Dictionary<string, string>
+        {
+            ["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"] = JwtClaimTypes.GivenName,
+            ["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"] = JwtClaimTypes.FamilyName,
+            ["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/"] = JwtClaimTypes.Email
+        };
 
         public ExternalController(
             IIdentityServerInteractionService interaction,
@@ -217,7 +223,17 @@ namespace Marvin.IDP
 
         private async Task<User> AutoProvisionUser(string provider, string providerUserId, IEnumerable<Claim> claims)
         {
-            var user = _localUserService.ProvisionUserFromExternalIdentity(provider, providerUserId, claims);
+            var mappedClaims = new List<Claim>();
+
+            foreach (var claim in claims)
+            {
+                if (_facebookClaimTypeMap.ContainsKey(claim.Type))
+                {
+                    mappedClaims.Add(new Claim(_facebookClaimTypeMap[claim.Type], claim.Value));
+                }
+            }
+
+            var user = _localUserService.ProvisionUserFromExternalIdentity(provider, providerUserId, mappedClaims);
             await _localUserService.SaveChangesAsync();
             return user;
         }
