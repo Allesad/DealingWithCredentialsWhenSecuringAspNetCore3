@@ -40,10 +40,10 @@ namespace Marvin.IDP.Services
             string provider,
             string providerIdentityKey,
             IEnumerable<Claim> claims);
-        //Task AddExternalProviderToUser(
-        //    string subject, 
-        //    string provider,
-        //    string providerIdentityKey);
+        Task AddExternalProviderToUser(
+            string subject,
+            string provider,
+            string providerIdentityKey);
         //Task<bool> AddUserSecret(
         //    string subject, 
         //    string name, 

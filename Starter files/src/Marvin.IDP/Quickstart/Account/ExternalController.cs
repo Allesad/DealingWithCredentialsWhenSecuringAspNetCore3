@@ -36,6 +36,11 @@ namespace Marvin.IDP
             ["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/"] = JwtClaimTypes.Email
         };
 
+        private readonly Dictionary<string, string> _windowsKeyMap = new Dictionary<string, string>
+        {
+            ["S-1-5-21-2103976416-1222640058-18367751-1001"] = "3a9e6c20-9e98-41f0-aa56-3bcb9bd447d4"
+        };
+
         public ExternalController(
             IIdentityServerInteractionService interaction,
             IClientStore clientStore,
@@ -127,7 +132,7 @@ namespace Marvin.IDP
                 }
                 else
                 {
-                    user = await AutoProvisionUser(provider, providerUserId, claims);
+                    user = await AutoProvisionWindowsUser(provider, providerUserId, claims);
                 }
             }
 
@@ -250,6 +255,28 @@ namespace Marvin.IDP
             }
 
             var user = _localUserService.ProvisionUserFromExternalIdentity(provider, providerUserId, mappedClaims);
+            await _localUserService.SaveChangesAsync();
+            return user;
+        }
+
+        private async Task<User> AutoProvisionWindowsUser(string provider, string providerUserId, IEnumerable<Claim> claims)
+        {
+            if (_windowsKeyMap.ContainsKey(providerUserId))
+            {
+                // find matching user
+                var existingUser = await _localUserService.GetUserBySubjectAsync(_windowsKeyMap[providerUserId]);
+                if (existingUser != null)
+                {
+                    await _localUserService.AddExternalProviderToUser(
+                        existingUser.Subject,
+                        provider,
+                        providerUserId);
+                    await _localUserService.SaveChangesAsync();
+                    return existingUser;
+                }
+            }
+
+            var user = _localUserService.ProvisionUserFromExternalIdentity(provider, providerUserId, new List<Claim>());
             await _localUserService.SaveChangesAsync();
             return user;
         }

@@ -314,33 +314,33 @@ namespace Marvin.IDP.Services
             return userLogin?.User;
         }
 
-        //public async Task AddExternalProviderToUser(
-        //    string subject,
-        //    string provider,
-        //    string providerIdentityKey)
-        //{
-        //    if (string.IsNullOrWhiteSpace(subject))
-        //    {
-        //        throw new ArgumentNullException(nameof(subject));
-        //    }
+        public async Task AddExternalProviderToUser(
+            string subject,
+            string provider,
+            string providerIdentityKey)
+        {
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                throw new ArgumentNullException(nameof(subject));
+            }
 
-        //    if (string.IsNullOrWhiteSpace(provider))
-        //    {
-        //        throw new ArgumentNullException(nameof(provider));
-        //    }
+            if (string.IsNullOrWhiteSpace(provider))
+            {
+                throw new ArgumentNullException(nameof(provider));
+            }
 
-        //    if (string.IsNullOrWhiteSpace(providerIdentityKey))
-        //    {
-        //        throw new ArgumentNullException(nameof(providerIdentityKey));
-        //    }
+            if (string.IsNullOrWhiteSpace(providerIdentityKey))
+            {
+                throw new ArgumentNullException(nameof(providerIdentityKey));
+            }
 
-        //    var user = await GetUserBySubjectAsync(subject);
-        //    user.Logins.Add(new UserLogin()
-        //    {
-        //        Provider = provider,
-        //        ProviderIdentityKey = providerIdentityKey
-        //    });            
-        //}
+            var user = await GetUserBySubjectAsync(subject);
+            user.Logins.Add(new UserLogin()
+            {
+                Provider = provider,
+                ProviderIdentityKey = providerIdentityKey
+            });
+        }
 
         public User ProvisionUserFromExternalIdentity(
             string provider,
