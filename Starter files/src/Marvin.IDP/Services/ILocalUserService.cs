@@ -1,5 +1,6 @@
 ﻿using Marvin.IDP.Entities;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Marvin.IDP.Services
@@ -32,13 +33,13 @@ namespace Marvin.IDP.Services
         Task<bool> SetPassword(
             string securityCode,
             string password);
-        //Task<User> GetUserByExternalProvider(
-        //    string provider,
-        //    string providerIdentityKey);
-        //User ProvisionUserFromExternalIdentity(
-        //    string provider,
-        //    string providerIdentityKey, 
-        //    IEnumerable<Claim> claims);
+        Task<User> GetUserByExternalProvider(
+            string provider,
+            string providerIdentityKey);
+        User ProvisionUserFromExternalIdentity(
+            string provider,
+            string providerIdentityKey,
+            IEnumerable<Claim> claims);
         //Task AddExternalProviderToUser(
         //    string subject, 
         //    string provider,
