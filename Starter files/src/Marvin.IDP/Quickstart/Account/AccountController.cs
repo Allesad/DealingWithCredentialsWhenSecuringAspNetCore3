@@ -8,14 +8,16 @@ using IdentityServer4.Extensions;
 using IdentityServer4.Models;
 using IdentityServer4.Services;
 using IdentityServer4.Stores;
-using IdentityServer4.Test;
+using Marvin.IDP.Account;
 using Marvin.IDP.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Marvin.IDP
@@ -34,6 +36,7 @@ namespace Marvin.IDP
         private readonly IAuthenticationSchemeProvider _schemeProvider;
         private readonly IEventService _events;
         private readonly ILocalUserService _localUserService;
+        private readonly string _totpSecret = "JBSWY3DPEHPK3PXP";
 
         public AccountController(
             IIdentityServerInteractionService interaction,
@@ -65,6 +68,95 @@ namespace Marvin.IDP
             }
 
             return View(vm);
+        }
+
+        [HttpGet]
+        public IActionResult AdditionalAuthenticationFactor(string returnUrl, bool rememberLogin)
+        {
+            var vm = new AdditionalAuthenticationFactorViewModel
+            {
+                RememberLogin = rememberLogin,
+                ReturnUrl = returnUrl
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AdditionalAuthenticationFactor(AdditionalAuthenticationFactorViewModel model)
+        {
+            var context = await _interaction.GetAuthorizationContextAsync(model.ReturnUrl);
+
+            if (ModelState.IsValid)
+            {
+                // read identity from temporary cookie
+                var result = await HttpContext.AuthenticateAsync("idsrv.mfa");
+                if (result?.Succeeded != true)
+                {
+                    throw new Exception("MFA authentication error");
+                }
+
+                var subject = result.Principal.FindFirst(JwtClaimTypes.Subject)?.Value;
+                var user = await _localUserService.GetUserBySubjectAsync(subject);
+
+                var authentication = new TwoStepsAuthenticator.TimeAuthenticator();
+                if (!authentication.CheckCode(_totpSecret, model.Totp, user))
+                {
+                    ModelState.AddModelError("totp", "TOTP is invalid");
+                    return View(model);
+                }
+
+                await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.Subject, user.Username, clientId: context?.ClientId));
+
+                // only set explicit expiration here if user chooses "remember me". 
+                // otherwise we rely upon expiration configured in cookie middleware.
+                AuthenticationProperties props = null;
+                if (AccountOptions.AllowRememberLogin && model.RememberLogin)
+                {
+                    props = new AuthenticationProperties
+                    {
+                        IsPersistent = true,
+                        ExpiresUtc = DateTimeOffset.UtcNow.Add(AccountOptions.RememberMeLoginDuration)
+                    };
+                };
+
+                // issue authentication cookie with subject ID and username
+                await HttpContext.SignInAsync(user.Subject, user.Username, props);
+
+                // delete temporary cookie used by MFA
+                await HttpContext.SignOutAsync("idsrv.mfa");
+
+                if (context != null)
+                {
+                    if (await _clientStore.IsPkceClientAsync(context.ClientId))
+                    {
+                        // if the client is PKCE then we assume it's native, so this change in how to
+                        // return the response is for better UX for the end user.
+                        return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
+                    }
+
+                    // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
+                    return Redirect(model.ReturnUrl);
+                }
+
+                // request for a local page
+                if (Url.IsLocalUrl(model.ReturnUrl))
+                {
+                    return Redirect(model.ReturnUrl);
+                }
+                else if (string.IsNullOrEmpty(model.ReturnUrl))
+                {
+                    return Redirect("~/");
+                }
+                else
+                {
+                    // user might have clicked on a malicious link - should be logged
+                    throw new Exception("invalid return URL");
+                }
+            }
+
+            return View(model);
         }
 
         /// <summary>
@@ -110,50 +202,25 @@ namespace Marvin.IDP
                 if (await _localUserService.ValidateCredentialsAsync(model.Username, model.Password))
                 {
                     var user = await _localUserService.GetUserByUserNameAsync(model.Username);
-                    await _events.RaiseAsync(new UserLoginSuccessEvent(user.Username, user.Subject, user.Username, clientId: context?.ClientId));
 
-                    // only set explicit expiration here if user chooses "remember me". 
-                    // otherwise we rely upon expiration configured in cookie middleware.
-                    AuthenticationProperties props = null;
-                    if (AccountOptions.AllowRememberLogin && model.RememberLogin)
-                    {
-                        props = new AuthenticationProperties
+                    var temporaryIdentity = new ClaimsIdentity();
+                    temporaryIdentity.AddClaim(new Claim(JwtClaimTypes.Subject, user.Subject));
+
+                    await HttpContext.SignInAsync("idsrv.mfa", new ClaimsPrincipal(temporaryIdentity));
+
+                    var authenticator = new TwoStepsAuthenticator.TimeAuthenticator();
+                    var totp = authenticator.GetCode(_totpSecret);
+
+                    Debug.WriteLine($"OTP: {totp}");
+
+                    var redirectToAdditionalFactorUrl = Url.Action("AdditionalAuthenticationFactor",
+                        new
                         {
-                            IsPersistent = true,
-                            ExpiresUtc = DateTimeOffset.UtcNow.Add(AccountOptions.RememberMeLoginDuration)
-                        };
-                    };
+                            returnUrl = model.ReturnUrl,
+                            rememberLogin = model.RememberLogin
+                        });
 
-                    // issue authentication cookie with subject ID and username
-                    await HttpContext.SignInAsync(user.Subject, user.Username, props);
-
-                    if (context != null)
-                    {
-                        if (await _clientStore.IsPkceClientAsync(context.ClientId))
-                        {
-                            // if the client is PKCE then we assume it's native, so this change in how to
-                            // return the response is for better UX for the end user.
-                            return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
-                        }
-
-                        // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
-                        return Redirect(model.ReturnUrl);
-                    }
-
-                    // request for a local page
-                    if (Url.IsLocalUrl(model.ReturnUrl))
-                    {
-                        return Redirect(model.ReturnUrl);
-                    }
-                    else if (string.IsNullOrEmpty(model.ReturnUrl))
-                    {
-                        return Redirect("~/");
-                    }
-                    else
-                    {
-                        // user might have clicked on a malicious link - should be logged
-                        throw new Exception("invalid return URL");
-                    }
+                    return Redirect(redirectToAdditionalFactorUrl);
                 }
 
                 await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId:context?.ClientId));

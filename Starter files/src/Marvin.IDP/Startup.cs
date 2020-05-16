@@ -65,6 +65,12 @@ namespace Marvin.IDP
                 options.AppSecret = Configuration["Facebook:AppSecret"];
                 options.SignInScheme = IdentityServerConstants.ExternalCookieAuthenticationScheme;
             });
+
+            // Temporary cookie authentication for MFA
+            services.AddAuthentication(options =>
+            {
+                options.RequireAuthenticatedSignIn = false;
+            }).AddCookie("idsrv.mfa");
         }
 
         public void Configure(IApplicationBuilder app)
