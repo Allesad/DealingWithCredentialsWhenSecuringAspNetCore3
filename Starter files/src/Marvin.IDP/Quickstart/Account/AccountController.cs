@@ -100,8 +100,11 @@ namespace Marvin.IDP
                 var subject = result.Principal.FindFirst(JwtClaimTypes.Subject)?.Value;
                 var user = await _localUserService.GetUserBySubjectAsync(subject);
 
+                var userSecret = await _localUserService.GetUserSecret(subject, "TOTP");
+                var totpSecret = (userSecret == null) ? _totpSecret : userSecret.Secret;
+
                 var authentication = new TwoStepsAuthenticator.TimeAuthenticator();
-                if (!authentication.CheckCode(_totpSecret, model.Totp, user))
+                if (!authentication.CheckCode(totpSecret, model.Totp, user))
                 {
                     ModelState.AddModelError("totp", "TOTP is invalid");
                     return View(model);
@@ -208,10 +211,15 @@ namespace Marvin.IDP
 
                     await HttpContext.SignInAsync("idsrv.mfa", new ClaimsPrincipal(temporaryIdentity));
 
-                    var authenticator = new TwoStepsAuthenticator.TimeAuthenticator();
-                    var totp = authenticator.GetCode(_totpSecret);
+                    if (!await _localUserService.UserHasRegisteredTotpSecret(user.Subject))
+                    {
+                        // Generate OTP
+                        var authenticator = new TwoStepsAuthenticator.TimeAuthenticator();
+                        var totp = authenticator.GetCode(_totpSecret);
 
-                    Debug.WriteLine($"OTP: {totp}");
+                        Debug.WriteLine($"OTP: {totp}");
+                    }
+                    
 
                     var redirectToAdditionalFactorUrl = Url.Action("AdditionalAuthenticationFactor",
                         new
