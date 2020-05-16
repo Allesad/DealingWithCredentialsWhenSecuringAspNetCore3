@@ -19,6 +19,8 @@ namespace Marvin.IDP.DbContexts
 
         public DbSet<UserLogin> UserLogins { get; set; }
 
+        public DbSet<UserSecret> UserSecrets { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
